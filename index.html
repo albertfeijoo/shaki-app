@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shaki · Entrenos</title>
+<meta name="theme-color" content="#14161c">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#14161c;
+    --surface:#1c1f27;
+    --surface-2:#252a35;
+    --line:#323847;
+    --text:#f2efe9;
+    --muted:#8b909c;
+    --accent:#5ec8d8;
+    --accent-dim:#3a5a61;
+    --muy-duro:#e2554f;
+    --duro:#e8934a;
+    --exigente:#e0c34a;
+    --consolidado:#55b97d;
+    --radius:16px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; height:100%; overscroll-behavior:none;}
+  #app{ max-width:520px; margin:0 auto; height:100vh; height:100dvh; display:flex; flex-direction:column; }
+  header.topbar{ display:flex; align-items:center; justify-content:space-between; padding:18px 20px 10px; flex:none; }
+  header.topbar h1{ font-size:22px; text-transform:uppercase; }
+  header.topbar .sub{ font-size:12px; color:var(--muted); }
+  main{ flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0 20px 32px; }
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px; margin-bottom:14px; }
+  .day-btn{ display:flex; align-items:center; justify-content:space-between; width:100%; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px; margin-bottom:12px; color:var(--text); font-size:17px; cursor:pointer; text-align:left; }
+  .day-btn:active{ background:var(--surface-2); }
+  .day-btn .grupo{ font-family:'Barlow Condensed'; font-size:24px; font-weight:700; text-transform:uppercase; display:block; }
+  .day-btn .meta{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .day-btn .arrow{ color:var(--accent); font-size:22px; }
+  .plates{ display:flex; gap:6px; margin:14px 0 20px; flex-wrap:wrap; }
+  .plate{ width:26px; height:26px; border-radius:50%; border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:11px; font-family:'Barlow Condensed'; color:var(--muted); flex:none; }
+  .plate.current{ border-color:var(--accent); color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
+  .plate.done-muy_duro{ background:var(--muy-duro); border-color:var(--muy-duro); color:#1a0b0a; }
+  .plate.done-duro{ background:var(--duro); border-color:var(--duro); color:#1a0f04; }
+  .plate.done-exigente{ background:var(--exigente); border-color:var(--exigente); color:#1a1704; }
+  .plate.done-consolidado{ background:var(--consolidado); border-color:var(--consolidado); color:#07160d; }
+  .ex-name{ font-size:26px; text-transform:none; display:flex; align-items:center; gap:10px; }
+  .info-btn{ width:26px; height:26px; border-radius:50%; border:1px solid var(--accent); background:transparent; color:var(--accent); font-size:15px; line-height:1; cursor:pointer; flex:none; font-family:Georgia,'Times New Roman',serif; font-style:italic; font-weight:700; display:inline-flex; align-items:center; justify-content:center; padding:0; }
+  .modal-overlay{ position:fixed; inset:0; background:rgba(10,11,15,.72); display:none; align-items:flex-end; justify-content:center; z-index:100; }
+  .modal-overlay.show{ display:flex; }
+  .modal-box{ background:var(--surface); width:100%; max-width:520px; max-height:82vh; border-radius:20px 20px 0 0; display:flex; flex-direction:column; overflow:hidden; }
+  .modal-head{ display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line); flex:none; }
+  .modal-head h3{ font-size:20px; }
+  .modal-head button{ background:none; border:none; color:var(--muted); font-size:18px; cursor:pointer; }
+  .modal-body{ padding:18px; overflow-y:auto; }
+  .modal-img{ width:100%; min-height:160px; background:var(--surface-2); border:1px dashed var(--line); border-radius:12px; margin-bottom:16px; overflow:hidden; text-align:center; }
+  .modal-img img{ width:100%; height:auto; display:block; margin:0 auto; }
+  .modal-img .placeholder{ color:var(--muted); font-size:13px; text-align:center; padding:60px 20px; }
+  #infoText{ font-size:14px; line-height:1.6; color:var(--text); margin:0; }
+  .ex-target{ display:flex; gap:18px; margin-top:14px; }
+  .metric{ background:var(--surface-2); border-radius:12px; padding:10px 14px; flex:1; text-align:center; }
+  .metric .val{ font-family:'Barlow Condensed'; font-size:26px; font-weight:700; }
+  .metric .lbl{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .prev{ font-size:13px; color:var(--muted); margin-top:12px; }
+  .question{ font-size:15px; font-weight:600; margin:20px 0 10px; }
+  .effort-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .effort-btn{ border:2px solid var(--line); background:var(--surface-2); color:var(--text); border-radius:12px; padding:14px 10px; font-size:14px; font-weight:600; cursor:pointer; text-align:center; }
+  .effort-btn[data-v="muy_duro"].sel, .effort-btn[data-v="muy_duro"]:active{ border-color:var(--muy-duro); background:color-mix(in srgb, var(--muy-duro) 22%, var(--surface-2)); }
+  .effort-btn[data-v="duro"].sel, .effort-btn[data-v="duro"]:active{ border-color:var(--duro); background:color-mix(in srgb, var(--duro) 22%, var(--surface-2)); }
+  .effort-btn[data-v="exigente"].sel, .effort-btn[data-v="exigente"]:active{ border-color:var(--exigente); background:color-mix(in srgb, var(--exigente) 22%, var(--surface-2)); }
+  .effort-btn[data-v="consolidado"].sel, .effort-btn[data-v="consolidado"]:active{ border-color:var(--consolidado); background:color-mix(in srgb, var(--consolidado) 22%, var(--surface-2)); }
+  textarea{ width:100%; margin-top:14px; background:var(--surface-2); border:1px solid var(--line); border-radius:12px; color:var(--text); font-family:'Inter'; font-size:14px; padding:12px; resize:vertical; min-height:52px; }
+  textarea::placeholder{ color:var(--muted); }
+  .primary-btn{ width:100%; background:var(--accent); color:#0c1f22; border:none; border-radius:12px; padding:16px; font-size:16px; font-weight:700; margin-top:18px; cursor:pointer; }
+  .primary-btn:disabled{ background:var(--surface-2); color:var(--muted); }
+  .ghost-btn{ width:100%; background:transparent; color:var(--muted); border:1px solid var(--line); border-radius:12px; padding:13px; font-size:14px; margin-top:10px; cursor:pointer; }
+  .upgrade-box{ background:var(--surface-2); border:1px solid var(--consolidado); border-radius:12px; padding:16px; margin-top:18px; }
+  .upgrade-box h3{ font-size:17px; color:var(--consolidado); margin-bottom:6px; }
+  .upgrade-box p{ font-size:13px; color:var(--muted); margin:0 0 12px; }
+  .upgrade-box input{ width:100%; background:var(--bg); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:12px; font-size:16px; font-family:'Barlow Condensed'; }
+  .upgrade-actions{ display:flex; gap:10px; margin-top:12px; }
+  .upgrade-actions button{ flex:1; border-radius:10px; padding:12px; font-size:14px; font-weight:600; border:none; cursor:pointer; }
+  .upgrade-actions .yes{ background:var(--consolidado); color:#07160d; }
+  .upgrade-actions .no{ background:var(--surface); color:var(--muted); border:1px solid var(--line); }
+  .summary-row{ display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--line); font-size:14px; }
+  .summary-row:last-child{ border-bottom:none; }
+  .summary-row .tag{ font-size:11px; padding:4px 8px; border-radius:20px; font-weight:600; }
+  .tag.muy_duro{ background:var(--muy-duro); color:#1a0b0a; }
+  .tag.duro{ background:var(--duro); color:#1a0f04; }
+  .tag.exigente{ background:var(--exigente); color:#1a1704; }
+  .tag.consolidado{ background:var(--consolidado); color:#07160d; }
+  .back-link{ color:var(--muted); font-size:14px; margin-bottom:14px; display:inline-block; cursor:pointer; }
+  .empty{ text-align:center; color:var(--muted); font-size:13px; padding:20px 0; }
+  footer.tabbar{ display:flex; flex:none; border-top:1px solid var(--line); background:var(--surface); padding-bottom:env(safe-area-inset-bottom); box-shadow:0 -6px 16px rgba(0,0,0,.35); }
+  footer.tabbar button{ flex:1; background:none; border:none; color:var(--muted); padding:14px 0; font-size:12px; font-family:'Inter'; cursor:pointer; }
+  footer.tabbar button.active{ color:var(--accent); }
+  .toast{ position:fixed; bottom:90px; left:50%; transform:translateX(-50%); background:var(--surface-2); border:1px solid var(--accent); color:var(--text); padding:12px 18px; border-radius:12px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .25s; z-index:50; }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div>
+      <h1>Shaki</h1>
+      <div class="sub" id="topSub">Registro de entrenos</div>
+    </div>
+    <div class="num" style="font-size:13px;color:var(--muted)" id="topDate"></div>
+  </header>
+  <main id="main"></main>
+  <footer class="tabbar">
+    <button data-tab="home" class="active">Entrenar</button>
+    <button data-tab="historial">Historial</button>
+    <button data-tab="export">Exportar</button>
+  </footer>
+</div>
+<div class="toast" id="toast"></div>
+<div class="modal-overlay" id="infoOverlay">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="infoTitle"></h3>
+      <button id="infoClose" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-img" id="infoImgWrap"></div>
+      <p id="infoText"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= DATOS INICIALES (seed desde tu Excel del 21/08/2026) ================= */
+const DEFAULT_DATA = {
+  Lunes: { grupo:"Espalda", exercises:[
+    {id:"lun1", name:"Jalón al pecho", weight:"70 kg", series:5, reps:"5", streak:0},
+    {id:"lun2", name:"Remo con barra", weight:"22,5 kg/lado + barra", series:4, reps:"8", streak:1},
+    {id:"lun3", name:"Remo máquina", weight:"90 kg", series:3, reps:"10", streak:1},
+    {id:"lun4", name:"Jalón neutro", weight:"60 kg", series:3, reps:"10", streak:0},
+    {id:"lun5", name:"Pullover polea", weight:"27,5 kg", series:3, reps:"12", streak:0},
+    {id:"lun6", name:"Remo unilateral mancuerna", weight:"26 kg", series:3, reps:"10", streak:0},
+    {id:"lun7", name:"Dominadas con banda", weight:"Misma banda", series:3, reps:"7", streak:0},
+    {id:"lun8", name:"Suspensión activa", weight:"Peso corporal", series:1, reps:"27 s", streak:0},
+  ]},
+  Martes: { grupo:"Pecho", exercises:[
+    {id:"mar1", name:"Press banca", weight:"30 kg/lado + barra", series:5, reps:"5", streak:0},
+    {id:"mar2", name:"Press inclinado mancuernas", weight:"26 kg", series:4, reps:"8", streak:0},
+    {id:"mar3", name:"Aperturas en polea", weight:"10 kg/brazo", series:3, reps:"12", streak:0},
+    {id:"mar4", name:"Press convergente", weight:"50 kg", series:3, reps:"10", streak:1},
+    {id:"mar5", name:"Flexiones", weight:"Peso corporal", series:2, reps:"20 / 16", streak:1},
+    {id:"mar6", name:"Peck Deck", weight:"45 kg", series:3, reps:"12", streak:1},
+  ]},
+  Jueves: { grupo:"Hombros + trapecio", exercises:[
+    {id:"jue1", name:"Press militar mancuernas", weight:"26 kg", series:5, reps:"5", streak:0},
+    {id:"jue2", name:"Elevaciones laterales", weight:"12 kg", series:4, reps:"12", streak:1},
+    {id:"jue3", name:"Pájaros", weight:"14 kg", series:4, reps:"12", streak:1},
+    {id:"jue4", name:"Face pull", weight:"22,5 kg", series:3, reps:"15", streak:1},
+    {id:"jue5", name:"Encogimientos", weight:"34 kg/mancuerna", series:4, reps:"10", streak:1},
+    {id:"jue6", name:"Laterales en polea", weight:"7,5 kg", series:3, reps:"15", streak:0},
+    {id:"jue7", name:"Press Arnold", weight:"16 kg", series:3, reps:"10", streak:0},
+  ]},
+  Viernes: { grupo:"Brazos / tríceps", exercises:[
+    {id:"vie1", name:"Press cerrado", weight:"27,5 kg", series:5, reps:"5", streak:1},
+    {id:"vie2", name:"Fondos", weight:"Peso corporal", series:4, reps:"7", streak:0},
+    {id:"vie3", name:"Pushdown", weight:"25 kg", series:3, reps:"10", streak:1},
+    {id:"vie4", name:"Extensión sobre cabeza", weight:"22,5 kg", series:3, reps:"12", streak:0},
+    {id:"vie5", name:"Bíceps", weight:"8 kg/mancuerna", series:1, reps:"12", streak:0},
+  ]},
+};
+/* Fichas técnicas: texto de ejecución + dibujo (se añade en /images cuando esté disponible) */
+const EXERCISE_INFO = {
+  "Jalón al pecho": { img:"images/jalon-al-pecho.jpg", text:"Siéntate con los muslos fijos bajo el soporte y agarre algo más ancho que los hombros. Inicia el movimiento llevando los codos hacia abajo y atrás, sacando pecho, hasta que la barra roce la parte alta del pecho. Controla la subida sin dejar que el peso tire de los brazos ni redondear la espalda. Exhala al bajar, inhala al subir." },
+  "Remo con barra": { img:"images/remo-con-barra.jpg", text:"Flexiona cadera manteniendo la espalda recta (torso a unos 45°), barra con agarre prono a la anchura de hombros. Tira de la barra hacia el abdomen bajo, llevando los codos pegados al cuerpo y juntando los omóplatos. Baja controlado sin redondear la zona lumbar. Evita balancear el torso para ayudarte con impulso." },
+  "Remo máquina": { img:"images/remo-maquina.jpg", text:"Pecho apoyado en el respaldo, agarra las asas y tira llevando los codos hacia atrás, apretando la espalda al final del recorrido. Vuelve controlando la fase excéntrica sin dejar caer el peso. Mantén los hombros bajos, sin encogerlos hacia las orejas." },
+  "Jalón neutro": { img:"images/jalon-neutro.jpg", text:"Igual que el jalón al pecho pero con agarre neutro (palmas enfrentadas) en la barra en V o asas paralelas. Tira llevando los codos hacia abajo y ligeramente hacia atrás, pecho arriba. Controla la vuelta sin dejar que el peso te levante del asiento." },
+  "Pullover polea": { img:"images/pullover-polea.jpg", text:"De pie o con una rodilla apoyada, brazos extendidos sujetando la cuerda o barra desde una polea alta. Con los codos ligeramente flexionados y fijos, lleva los brazos en arco hacia los muslos, sintiendo el estiramiento del dorsal arriba y la contracción abajo. No uses los tríceps para empujar, el movimiento sale del hombro." },
+  "Remo unilateral mancuerna": { img:"images/remo-unilateral-mancuerna.jpg", text:"Apoya rodilla y mano del mismo lado en un banco, espalda paralela al suelo. Con la mancuerna en la mano libre, tira llevando el codo hacia atrás y arriba, pegado al cuerpo, sin rotar el torso. Baja controlado hasta estirar completamente el brazo." },
+  "Dominadas con banda": { img:"images/dominadas-con-banda.jpg", text:"Coloca la banda elástica alrededor de la barra y apoya una rodilla o pie dentro como asistencia. Agarre prono a la anchura de hombros, tira llevando el pecho hacia la barra y los codos hacia abajo. Baja controlado hasta extender los brazos casi por completo, sin balancear el cuerpo." },
+  "Suspensión activa": { img:"images/suspension-activa.jpg", text:"Cuélgate de la barra con agarre prono, brazos extendidos. Activa el core y la espalda alta tirando ligeramente de los omóplatos hacia abajo (sin llegar a hacer dominada), manteniendo la posición de forma isométrica el tiempo indicado. Respira de forma controlada, evita balancearte." },
+  "Press banca": { img:"images/press-banca.jpg", text:"Tumbado en el banco, pies firmes en el suelo, escápulas retraídas y ligero arco lumbar natural. Baja la barra de forma controlada hasta rozar el pecho a la altura del esternón, codos a unos 45-60° del torso. Empuja hacia arriba en línea recta sin bloquear bruscamente los codos." },
+  "Press inclinado mancuernas": { img:"images/press-inclinado-mancuernas.jpg", text:"Banco inclinado 30-45°, mancuernas a la altura del pecho con los codos algo por debajo de los hombros. Empuja hacia arriba y ligeramente hacia el centro sin chocar las mancuernas, controla la bajada hasta sentir estiramiento en el pecho." },
+  "Aperturas en polea": { img:"images/aperturas-en-polea.jpg", text:"De pie entre dos poleas altas o bajas (según variante), un pie ligeramente adelantado. Con los codos semiflexionados fijos, junta las manos por delante del pecho en un movimiento de arco amplio, apretando el pecho al final. Vuelve controlado sintiendo el estiramiento sin forzar el hombro." },
+  "Press convergente": { img:"images/press-convergente.jpg", text:"Siéntate en la máquina con la espalda apoyada, agarra las asas que convergen hacia el centro. Empuja hacia delante juntando las manos, apretando el pecho al final del recorrido. Vuelve controlado sin dejar caer el peso de golpe." },
+  "Flexiones": { img:"images/flexiones.jpg", text:"Manos algo más anchas que los hombros, cuerpo en línea recta desde cabeza a talones, core activado. Baja el pecho hacia el suelo flexionando los codos a unos 45° del torso, sube empujando el suelo sin hundir la cadera ni elevar el glúteo." },
+  "Peck Deck": { img:"images/peck-deck.jpg", text:"Espalda apoyada en el respaldo, antebrazos o manos en las almohadillas/asas. Junta los brazos por delante del pecho en un arco controlado, apretando al final, y vuelve despacio sintiendo el estiramiento sin dejar que el peso tire de golpe." },
+  "Press militar mancuernas": { img:"images/press-militar-mancuernas.jpg", text:"De pie o sentado, mancuernas a la altura de los hombros con codos ligeramente por delante del cuerpo. Empuja hacia arriba en línea recta hasta casi extender los brazos, sin arquear en exceso la zona lumbar. Baja controlado hasta la posición inicial." },
+  "Elevaciones laterales": { img:"images/elevaciones-laterales.jpg", text:"De pie, mancuernas a los lados, ligera flexión de codos. Eleva los brazos hacia los lados hasta la altura de los hombros, liderando con los codos, sin encoger el trapecio ni usar impulso. Baja controlado." },
+  "Pájaros": { img:"images/pajaros.jpg", text:"Inclina el torso hacia delante manteniendo la espalda recta, mancuernas colgando con ligera flexión de codo. Eleva los brazos hacia los lados apretando la espalda alta y el deltoides posterior, sin usar impulso ni encoger el cuello. Baja controlado." },
+  "Face pull": { img:"images/face-pull.jpg", text:"Polea a la altura de la cara con cuerda, agarre neutro. Tira hacia la cara separando las manos al final del recorrido, llevando los codos hacia atrás y arriba, apretando la espalda alta y rotando externamente los hombros. Vuelve controlado." },
+  "Encogimientos": { img:"images/encogimientos.jpg", text:"De pie, mancuernas a los lados, brazos rectos. Eleva los hombros directamente hacia arriba (como encogiéndote), sin rodar los hombros ni ayudarte con los brazos. Mantén un segundo arriba y baja controlado." },
+  "Laterales en polea": { img:"images/laterales-en-polea.jpg", text:"De pie junto a una polea baja, agarre con la mano contraria al lado de la polea, brazo cruzado por delante del cuerpo. Eleva el brazo hacia el lateral hasta la altura del hombro, controlando la vuelta sin dejar que el peso tire de golpe." },
+  "Press Arnold": { img:"images/press-arnold.jpg", text:"Sentado o de pie, mancuernas a la altura de los hombros con las palmas mirando hacia ti. Al empujar hacia arriba, rota las muñecas de forma que las palmas terminen mirando hacia delante arriba del todo. Invierte la rotación al bajar." },
+  "Press cerrado": { img:"images/press-cerrado.jpg", text:"Tumbado en banco, agarre en la barra a la anchura de los hombros o algo menor, codos pegados al cuerpo durante todo el recorrido. Baja la barra hasta rozar el pecho bajo, empuja en línea recta enfocando el trabajo en el tríceps." },
+  "Fondos": { img:"images/fondos.jpg", text:"En paralelas, brazos extendidos, ligera inclinación del torso hacia delante para enfatizar tríceps/pecho. Baja flexionando los codos hasta unos 90°, sin hundir demasiado el hombro, y empuja hacia arriba sin bloquear bruscamente." },
+  "Pushdown": { img:"images/pushdown.jpg", text:"De pie frente a la polea alta, codos pegados al cuerpo y fijos. Extiende los antebrazos hacia abajo hasta estirar completamente el tríceps, sin mover los codos hacia delante, y vuelve controlado sin soltar la tensión." },
+  "Extensión sobre cabeza": { img:"images/extension-sobre-cabeza.jpg", text:"Sentado o de pie, mancuerna o barra sujeta con ambas manos por encima de la cabeza, codos apuntando al frente y fijos. Baja el peso detrás de la cabeza flexionando solo los codos, y extiende de vuelta arriba sin abrir los codos hacia los lados." },
+  "Bíceps": { img:null, text:"De pie, mancuernas a los lados, codos pegados al torso. Flexiona el codo llevando la mancuerna hacia el hombro sin balancear el cuerpo ni usar impulso de cadera. Baja controlado hasta extender completamente el brazo. Fase de reintroducción: prioriza técnica limpia sobre carga." },
+};
+function slugify(s){
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+}
+const DIAS = ["Lunes","Martes","Jueves","Viernes"];
+const EFFORT_LABELS = {
+  muy_duro:"Muy duro", duro:"Duro", exigente:"Exigente pero realizable", consolidado:"Consolidado"
+};
+const EFFORT_XLSX = {
+  muy_duro:"🔴 Muy duro", duro:"🟠 Duro", exigente:"🟡 Exigente pero realizable", consolidado:"🟢 Consolidado"
+};
+
+/* ================= ESTADO / PERSISTENCIA ================= */
+let state = {
+  data: null,        // plan actual (pesos, streaks) -> localStorage 'shakiData'
+  historial: [],      // filas de historial -> localStorage 'shakiHistorial'
+  session: null,       // sesión en curso
+};
+
+function loadState(){
+  const d = localStorage.getItem('shakiData');
+  const h = localStorage.getItem('shakiHistorial');
+  state.data = d ? JSON.parse(d) : JSON.parse(JSON.stringify(DEFAULT_DATA));
+  state.historial = h ? JSON.parse(h) : [];
+}
+function saveData(){ localStorage.setItem('shakiData', JSON.stringify(state.data)); }
+function saveHistorial(){ localStorage.setItem('shakiHistorial', JSON.stringify(state.historial)); }
+
+function todayISO(){
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ================= NAVEGACIÓN ================= */
+let currentTab = 'home';
+document.querySelectorAll('.tabbar button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.tabbar button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    currentTab = b.dataset.tab;
+    state.session = null;
+    render();
+  });
+});
+
+function render(){
+  document.getElementById('topDate').textContent = new Date().toLocaleDateString('es-ES',{weekday:'short', day:'numeric', month:'short'});
+  if(state.session){ renderSession(); return; }
+  if(currentTab==='home') renderHome();
+  else if(currentTab==='historial') renderHistorial();
+  else if(currentTab==='export') renderExport();
+}
+
+/* ================= HOME: selector de día ================= */
+function renderHome(){
+  document.getElementById('topSub').textContent = "¿Qué entreno toca hoy?";
+  const main = document.getElementById('main');
+  let html = '';
+  DIAS.forEach(dia=>{
+    const d = state.data[dia];
+    const last = lastSessionDate(dia);
+    html += `<button class="day-btn" data-dia="${dia}">
+      <span>
+        <span class="grupo">${dia} · ${d.grupo}</span>
+        <span class="meta">${d.exercises.length} ejercicios ${last? '· última vez '+formatDate(last): '· sin registros aún'}</span>
+      </span>
+      <span class="arrow">›</span>
+    </button>`;
+  });
+  main.innerHTML = html;
+  main.querySelectorAll('.day-btn').forEach(b=>{
+    b.addEventListener('click', ()=> startSession(b.dataset.dia));
+  });
+}
+function lastSessionDate(dia){
+  const rows = state.historial.filter(r=>r.dia===dia);
+  if(!rows.length) return null;
+  return rows[rows.length-1].fecha;
+}
+function formatDate(iso){
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}`;
+}
+
+/* ================= SESIÓN: recorrer ejercicios uno a uno ================= */
+function startSession(dia){
+  state.session = { dia, idx:0, results:[], pendingUpgrade:null, effort:null, comment:'' };
+  render();
+}
+
+function renderSession(){
+  const s = state.session;
+  const day = state.data[s.dia];
+  const ex = day.exercises[s.idx];
+  document.getElementById('topSub').textContent = `${s.dia} · ${day.grupo}`;
+  const main = document.getElementById('main');
+
+  if(s.pendingUpgrade){
+    renderUpgradePrompt(); return;
+  }
+
+  const platesHtml = day.exercises.map((e,i)=>{
+    let cls = 'plate';
+    if(i < s.idx) cls += ' done-'+s.results[i].effort;
+    else if(i === s.idx) cls += ' current';
+    return `<div class="${cls}">${i+1}</div>`;
+  }).join('');
+
+  main.innerHTML = `
+    <div class="plates">${platesHtml}</div>
+    <div class="card">
+      <h2 class="ex-name">${ex.name}<button class="info-btn" id="infoBtn" aria-label="Cómo se hace">i</button></h2>
+      <div class="ex-target">
+        <div class="metric"><div class="val">${ex.weight}</div><div class="lbl">Peso</div></div>
+        <div class="metric"><div class="val">${ex.series}×${ex.reps}</div><div class="lbl">Series×Reps</div></div>
+      </div>
+      <div class="prev">Ejercicio ${s.idx+1} de ${day.exercises.length}</div>
+
+      <div class="question">¿Cómo ha ido?</div>
+      <div class="effort-grid" id="effortGrid">
+        ${Object.keys(EFFORT_LABELS).map(k=>`<button class="effort-btn" data-v="${k}">${EFFORT_LABELS[k]}</button>`).join('')}
+      </div>
+      <textarea id="comment" placeholder="Comentario opcional (técnica, molestias, sensaciones...)"></textarea>
+      <button class="primary-btn" id="nextBtn" disabled>Siguiente</button>
+    </div>
+  `;
+
+  document.getElementById('infoBtn').addEventListener('click', ()=> openInfoModal(ex.name));
+
+  let selected = null;
+  main.querySelectorAll('.effort-btn').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      main.querySelectorAll('.effort-btn').forEach(x=>x.classList.remove('sel'));
+      b.classList.add('sel');
+      selected = b.dataset.v;
+      document.getElementById('nextBtn').disabled = false;
+    });
+  });
+  document.getElementById('nextBtn').addEventListener('click', ()=>{
+    if(!selected) return;
+    const comment = document.getElementById('comment').value.trim();
+    finishExercise(ex, selected, comment);
+  });
+}
+
+function finishExercise(ex, effort, comment){
+  const s = state.session;
+  const newStreak = (effort==='consolidado') ? (ex.streak||0)+1 : 0;
+  s.results[s.idx] = { name:ex.name, weight:ex.weight, series:ex.series, reps:ex.reps, effort, comment, prevStreak: ex.streak||0, newStreak };
+
+  if(newStreak >= 2){
+    s.pendingUpgrade = { exIdx: s.idx, suggestion: suggestWeight(ex.weight) };
+    render();
+    return;
+  }
+  ex.streak = newStreak;
+  advance();
+}
+
+function suggestWeight(weightStr){
+  const m = weightStr.match(/^(\d+(?:[.,]\d+)?)/);
+  if(!m) return weightStr; // sin número (peso corporal, banda...) -> se deja igual, editable
+  const num = parseFloat(m[1].replace(',','.'));
+  const inc = num < 15 ? 1 : 2.5;
+  const newNum = (num + inc);
+  const newNumStr = (newNum % 1 === 0) ? newNum.toString() : newNum.toFixed(1).replace('.',',');
+  return weightStr.replace(m[1], newNumStr);
+}
+
+function renderUpgradePrompt(){
+  const s = state.session;
+  const day = state.data[s.dia];
+  const ex = day.exercises[s.pendingUpgrade.exIdx];
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="card">
+      <div class="upgrade-box">
+        <h3>🎉 2 semanas seguidas en Consolidado</h3>
+        <p>${ex.name} lleva dos sesiones consolidando ${ex.weight}. ¿Subimos peso para la próxima vez?</p>
+        <input id="newWeight" type="text" value="${s.pendingUpgrade.suggestion}">
+        <div class="upgrade-actions">
+          <button class="no" id="keepBtn">Mantener</button>
+          <button class="yes" id="upBtn">Subir peso</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('keepBtn').addEventListener('click', ()=>{
+    ex.streak = 0;
+    s.pendingUpgrade = null;
+    advance();
+  });
+  document.getElementById('upBtn').addEventListener('click', ()=>{
+    const val = document.getElementById('newWeight').value.trim();
+    if(val) ex.weight = val;
+    ex.streak = 0;
+    s.pendingUpgrade = null;
+    advance();
+  });
+}
+
+function advance(){
+  const s = state.session;
+  const day = state.data[s.dia];
+  saveData();
+  if(s.idx < day.exercises.length-1){
+    s.idx++;
+    render();
+  } else {
+    finishSession();
+  }
+}
+
+function finishSession(){
+  const s = state.session;
+  const day = state.data[s.dia];
+  const fecha = todayISO();
+  s.results.forEach(r=>{
+    state.historial.push({
+      fecha, dia:s.dia, grupo:day.grupo, ejercicio:r.name, peso:r.weight,
+      series:r.series, reps:r.reps, sensaciones:r.comment||'', estado:EFFORT_XLSX[r.effort],
+      observaciones: r.newStreak>=2 ? 'Subida de peso aplicada / valorada' : (r.effort==='consolidado' ? `Racha consolidado: ${r.newStreak}` : '')
+    });
+  });
+  saveHistorial();
+  renderSummary(fecha);
+}
+
+function renderSummary(fecha){
+  const s = state.session;
+  const main = document.getElementById('main');
+  document.getElementById('topSub').textContent = `${s.dia} · sesión guardada`;
+  main.innerHTML = `
+    <div class="card">
+      <h2 style="font-size:22px;margin-bottom:10px;">Resumen · ${formatDate(fecha)}</h2>
+      ${s.results.map(r=>`
+        <div class="summary-row">
+          <span>${r.name}</span>
+          <span class="tag ${r.effort}">${EFFORT_LABELS[r.effort]}</span>
+        </div>
+      `).join('')}
+    </div>
+    <button class="primary-btn" id="doneBtn">Volver a entrenos</button>
+    <button class="ghost-btn" id="exportNowBtn">Exportar Excel ahora</button>
+  `;
+  document.getElementById('doneBtn').addEventListener('click', ()=>{
+    state.session = null; currentTab='home';
+    document.querySelectorAll('.tabbar button').forEach(x=>x.classList.remove('active'));
+    document.querySelector('.tabbar button[data-tab="home"]').classList.add('active');
+    render();
+  });
+  document.getElementById('exportNowBtn').addEventListener('click', exportExcel);
+}
+
+/* ================= HISTORIAL ================= */
+function renderHistorial(){
+  document.getElementById('topSub').textContent = "Últimas sesiones";
+  const main = document.getElementById('main');
+  if(!state.historial.length){
+    main.innerHTML = `<div class="empty">Todavía no hay sesiones registradas.</div>`;
+    return;
+  }
+  const rows = [...state.historial].reverse().slice(0,60);
+  main.innerHTML = `<div class="card">` + rows.map(r=>`
+    <div class="summary-row">
+      <span>${formatDate(r.fecha)} · ${r.ejercicio}</span>
+      <span class="tag ${Object.keys(EFFORT_XLSX).find(k=>EFFORT_XLSX[k]===r.estado)||''}">${r.estado.replace(/^\S+\s/,'')}</span>
+    </div>
+  `).join('') + `</div>`;
+}
+
+/* ================= EXPORTAR EXCEL ================= */
+function renderExport(){
+  document.getElementById('topSub').textContent = "Genera tu Excel actualizado";
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <span class="back-link" id="backHome">‹ Volver a Entrenar</span>
+    <div class="card">
+      <p style="font-size:14px;color:var(--muted);line-height:1.5;">
+        Genera un .xlsx con tus 4 hojas de entreno (pesos y estados actuales) y el Historial completo,
+        igual que tu archivo original. Descárgalo y súbelo a Drive o envíatelo cuando quieras.
+      </p>
+      <button class="primary-btn" id="exportBtn">Descargar Excel</button>
+    </div>
+    <div class="card">
+      <p style="font-size:13px;color:var(--muted);">También puedes borrar todos los datos guardados en este teléfono y volver a empezar desde cero.</p>
+      <button class="ghost-btn" id="resetBtn">Borrar datos locales</button>
+    </div>
+  `;
+  document.getElementById('exportBtn').addEventListener('click', exportExcel);
+  document.getElementById('backHome').addEventListener('click', ()=>{
+    currentTab='home';
+    document.querySelectorAll('.tabbar button').forEach(x=>x.classList.remove('active'));
+    document.querySelector('.tabbar button[data-tab="home"]').classList.add('active');
+    render();
+  });
+  document.getElementById('resetBtn').addEventListener('click', ()=>{
+    if(confirm('¿Seguro que quieres borrar todos los pesos, rachas e historial guardados en este teléfono? Esta acción no se puede deshacer.')){
+      localStorage.removeItem('shakiData');
+      localStorage.removeItem('shakiHistorial');
+      loadState();
+      toast('Datos borrados');
+      render();
+    }
+  });
+}
+
+function exportExcel(){
+  const wb = XLSX.utils.book_new();
+  DIAS.forEach(dia=>{
+    const d = state.data[dia];
+    const rows = [
+      [`${dia} · ${d.grupo}`],
+      [],
+      ["Ejercicio","Peso / asistencia","Series","Reps","Estado (última sesión)","Racha Consolidado"],
+    ];
+    d.exercises.forEach(ex=>{
+      const lastRow = [...state.historial].reverse().find(r=>r.dia===dia && r.ejercicio===ex.name);
+      rows.push([ex.name, ex.weight, ex.series, ex.reps, lastRow? lastRow.estado : '', ex.streak||0]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, dia);
+  });
+  const histRows = [
+    ["Historial de sesiones"], [],
+    ["Fecha","Día","Grupo","Ejercicio","Peso","Series","Reps","Sensaciones","Estado","Observaciones"],
+  ];
+  state.historial.forEach(r=>{
+    histRows.push([r.fecha, r.dia, r.grupo, r.ejercicio, r.peso, r.series, r.reps, r.sensaciones, r.estado, r.observaciones]);
+  });
+  const wsHist = XLSX.utils.aoa_to_sheet(histRows);
+  XLSX.utils.book_append_sheet(wb, wsHist, "Historial");
+
+  const fname = `Tracking_entrenamientos_Shaki_${todayISO()}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  toast('Excel descargado');
+}
+
+/* ================= MODAL INFO EJERCICIO ================= */
+function openInfoModal(name){
+  const info = EXERCISE_INFO[name] || { img:null, text:"Todavía no hay ficha técnica para este ejercicio." };
+  document.getElementById('infoTitle').textContent = name;
+  document.getElementById('infoText').textContent = info.text;
+  const imgWrap = document.getElementById('infoImgWrap');
+  if(info.img){
+    imgWrap.innerHTML = `<img src="${info.img}" alt="Esquema de ${name}">`;
+  } else {
+    imgWrap.innerHTML = `<div class="placeholder">Dibujo pendiente de añadir</div>`;
+  }
+  document.getElementById('infoOverlay').classList.add('show');
+}
+document.getElementById('infoClose').addEventListener('click', ()=>{
+  document.getElementById('infoOverlay').classList.remove('show');
+});
+document.getElementById('infoOverlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'infoOverlay') e.currentTarget.classList.remove('show');
+});
+
+/* ================= PWA ================= */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+/* ================= INIT ================= */
+loadState();
+render();
+</script>
+</body>
+</html>
