@@ -1,5 +1,5 @@
-const CACHE = 'shaki-v6';
-const ASSETS = ['./', './index.html', './manifest.json', './images/icon-192.png', './images/icon-512.png', './images/splash.png'];
+const CACHE = 'shaki-v7';
+const ASSETS = ['./', './index.html', './manifest.json', './images/icon-192.png', './images/icon-512.png', './images/splash.jpg'];
 // nota: las imágenes de ejercicios se cachean automáticamente al visitarlas (ver 'fetch' abajo)
 
 self.addEventListener('install', e => {
