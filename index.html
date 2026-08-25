@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Shaki · Entrenos</title>
-<meta name="theme-color" content="#14161c">
+<title>Fat Shak Training</title>
+<meta name="theme-color" content="#f2e7d1">
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="images/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="images/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -28,6 +28,9 @@
     --radius:16px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  #splash{ position:fixed; inset:0; z-index:999; background:#f2e7d1; display:flex; align-items:center; justify-content:center; padding:12vw; transition:opacity .5s ease; }
+  #splash img{ width:100%; max-width:420px; height:auto; }
+  #splash.hide{ opacity:0; pointer-events:none; }
   html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; height:100%; overscroll-behavior:none;}
   #app{ max-width:520px; margin:0 auto; height:100vh; height:100dvh; display:flex; flex-direction:column; }
   header.topbar{ display:flex; align-items:center; justify-content:space-between; padding:18px 20px 10px; flex:none; }
@@ -41,7 +44,7 @@
   .day-btn .meta{ font-size:12px; color:var(--muted); margin-top:2px; }
   .day-btn .arrow{ color:var(--accent); font-size:22px; }
   .plates{ display:flex; gap:6px; margin:14px 0 20px; flex-wrap:wrap; }
-  .plate{ width:26px; height:26px; border-radius:50%; border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:11px; font-family:'Barlow Condensed'; color:var(--muted); flex:none; }
+  .plate{ width:26px; height:26px; border-radius:50%; border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:11px; font-family:'Barlow Condensed'; color:var(--muted); flex:none; background:transparent; padding:0; cursor:pointer; }
   .plate.current{ border-color:var(--accent); color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
   .plate.done-muy_duro{ background:var(--muy-duro); border-color:var(--muy-duro); color:#1a0b0a; }
   .plate.done-duro{ background:var(--duro); border-color:var(--duro); color:#1a0f04; }
@@ -65,6 +68,12 @@
   .metric .val{ font-family:'Barlow Condensed'; font-size:26px; font-weight:700; }
   .metric .lbl{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
   .prev{ font-size:13px; color:var(--muted); margin-top:12px; }
+  .nav-row{ display:flex; gap:10px; margin-top:18px; }
+  .nav-row .nav-btn{ flex:1; margin-top:0; }
+  .browse-row{ display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid var(--line); gap:12px; }
+  .browse-row:last-child{ border-bottom:none; }
+  .browse-name{ font-size:15px; font-weight:600; }
+  .browse-meta{ font-size:12px; color:var(--muted); margin-top:2px; }
   .question{ font-size:15px; font-weight:600; margin:20px 0 10px; }
   .effort-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .effort-btn{ border:2px solid var(--line); background:var(--surface-2); color:var(--text); border-radius:12px; padding:14px 10px; font-size:14px; font-weight:600; cursor:pointer; text-align:center; }
@@ -102,6 +111,9 @@
 </style>
 </head>
 <body>
+<div id="splash">
+  <img src="images/splash.png" alt="Fat Shak Training">
+</div>
 <div id="app">
   <header class="topbar">
     <div>
@@ -113,6 +125,7 @@
   <main id="main"></main>
   <footer class="tabbar">
     <button data-tab="home" class="active">Entrenar</button>
+    <button data-tab="browse">Ejercicios</button>
     <button data-tab="historial">Historial</button>
     <button data-tab="export">Exportar</button>
   </footer>
@@ -127,6 +140,20 @@
     <div class="modal-body">
       <div class="modal-img" id="infoImgWrap"></div>
       <p id="infoText"></p>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="closeDayOverlay">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>Cerrar día</h3>
+      <button id="closeDayCancelX" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="closeDaySummaryText" style="color:var(--muted);font-size:13px;margin:0 0 14px;"></p>
+      <div id="closeDayRows"></div>
+      <button class="primary-btn" id="closeDayConfirmBtn">Confirmar y cerrar día</button>
+      <button class="ghost-btn" id="closeDayCancelBtn">Seguir entrenando</button>
     </div>
   </div>
 </div>
@@ -237,20 +264,30 @@ function toast(msg){
 
 /* ================= NAVEGACIÓN ================= */
 let currentTab = 'home';
+let browseDay = null;
 document.querySelectorAll('.tabbar button').forEach(b=>{
   b.addEventListener('click', ()=>{
     document.querySelectorAll('.tabbar button').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
     currentTab = b.dataset.tab;
     state.session = null;
+    browseDay = null;
     render();
   });
 });
+
+function goHome(){
+  state.session = null; currentTab='home';
+  document.querySelectorAll('.tabbar button').forEach(x=>x.classList.remove('active'));
+  document.querySelector('.tabbar button[data-tab="home"]').classList.add('active');
+  render();
+}
 
 function render(){
   document.getElementById('topDate').textContent = new Date().toLocaleDateString('es-ES',{weekday:'short', day:'numeric', month:'short'});
   if(state.session){ renderSession(); return; }
   if(currentTab==='home') renderHome();
+  else if(currentTab==='browse'){ if(browseDay) renderBrowseDay(); else renderBrowseList(); }
   else if(currentTab==='historial') renderHistorial();
   else if(currentTab==='export') renderExport();
 }
@@ -286,9 +323,54 @@ function formatDate(iso){
   return `${d}/${m}`;
 }
 
-/* ================= SESIÓN: recorrer ejercicios uno a uno ================= */
+/* ================= EXPLORAR: consultar ejercicios de cualquier día ================= */
+function renderBrowseList(){
+  document.getElementById('topSub').textContent = "Consulta cualquier día";
+  const main = document.getElementById('main');
+  let html = '';
+  DIAS.forEach(dia=>{
+    const d = state.data[dia];
+    html += `<button class="day-btn" data-dia="${dia}">
+      <span>
+        <span class="grupo">${dia} · ${d.grupo}</span>
+        <span class="meta">${d.exercises.length} ejercicios</span>
+      </span>
+      <span class="arrow">›</span>
+    </button>`;
+  });
+  main.innerHTML = html;
+  main.querySelectorAll('.day-btn').forEach(b=>{
+    b.addEventListener('click', ()=>{ browseDay = b.dataset.dia; render(); });
+  });
+}
+function renderBrowseDay(){
+  const dia = browseDay;
+  const day = state.data[dia];
+  document.getElementById('topSub').textContent = `${dia} · ${day.grupo}`;
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <span class="back-link" id="backBrowse">‹ Volver a los días</span>
+    <div class="card">
+      ${day.exercises.map(ex=>`
+        <div class="browse-row">
+          <div>
+            <div class="browse-name">${ex.name}</div>
+            <div class="browse-meta">${ex.weight} · ${ex.series}×${ex.reps}</div>
+          </div>
+          <button class="info-btn" data-name="${ex.name}" aria-label="Cómo se hace">i</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  document.getElementById('backBrowse').addEventListener('click', ()=>{ browseDay=null; render(); });
+  main.querySelectorAll('.info-btn').forEach(b=>{
+    b.addEventListener('click', ()=> openInfoModal(b.dataset.name));
+  });
+}
+
+/* ================= SESIÓN: navegación libre entre ejercicios ================= */
 function startSession(dia){
-  state.session = { dia, idx:0, results:[], pendingUpgrade:null, effort:null, comment:'' };
+  state.session = { dia, idx:0, results:{}, pendingUpgrade:null };
   render();
 }
 
@@ -303,11 +385,14 @@ function renderSession(){
     renderUpgradePrompt(); return;
   }
 
+  const rec = s.results[ex.id];
+
   const platesHtml = day.exercises.map((e,i)=>{
     let cls = 'plate';
-    if(i < s.idx) cls += ' done-'+s.results[i].effort;
-    else if(i === s.idx) cls += ' current';
-    return `<div class="${cls}">${i+1}</div>`;
+    const r = s.results[e.id];
+    if(r) cls += ' done-'+r.effort;
+    if(i === s.idx) cls += ' current';
+    return `<button type="button" class="${cls}" data-idx="${i}">${i+1}</button>`;
   }).join('');
 
   main.innerHTML = `
@@ -318,47 +403,75 @@ function renderSession(){
         <div class="metric"><div class="val">${ex.weight}</div><div class="lbl">Peso</div></div>
         <div class="metric"><div class="val">${ex.series}×${ex.reps}</div><div class="lbl">Series×Reps</div></div>
       </div>
-      <div class="prev">Ejercicio ${s.idx+1} de ${day.exercises.length}</div>
+      <div class="prev">Ejercicio ${s.idx+1} de ${day.exercises.length}${rec? ' · ya registrado':' · opcional, puedes saltarlo'}</div>
 
       <div class="question">¿Cómo ha ido?</div>
       <div class="effort-grid" id="effortGrid">
-        ${Object.keys(EFFORT_LABELS).map(k=>`<button class="effort-btn" data-v="${k}">${EFFORT_LABELS[k]}</button>`).join('')}
+        ${Object.keys(EFFORT_LABELS).map(k=>`<button class="effort-btn${rec&&rec.effort===k?' sel':''}" data-v="${k}">${EFFORT_LABELS[k]}</button>`).join('')}
       </div>
-      <textarea id="comment" placeholder="Comentario opcional (técnica, molestias, sensaciones...)"></textarea>
-      <button class="primary-btn" id="nextBtn" disabled>Siguiente</button>
+      <textarea id="comment" placeholder="Comentario opcional (técnica, molestias, sensaciones...)">${rec?(rec.comment||''):''}</textarea>
+
+      <div class="nav-row">
+        <button class="ghost-btn nav-btn" id="prevBtn" ${s.idx===0?'disabled':''}>‹ Anterior</button>
+        <button class="ghost-btn nav-btn" id="nextBtn2">${s.idx===day.exercises.length-1?'Terminar ›':'Siguiente ›'}</button>
+      </div>
+      <button class="ghost-btn" id="closeDayBtn">Cerrar día</button>
     </div>
   `;
 
   document.getElementById('infoBtn').addEventListener('click', ()=> openInfoModal(ex.name));
 
-  let selected = null;
+  let selected = rec ? rec.effort : null;
   main.querySelectorAll('.effort-btn').forEach(b=>{
     b.addEventListener('click', ()=>{
-      main.querySelectorAll('.effort-btn').forEach(x=>x.classList.remove('sel'));
-      b.classList.add('sel');
       selected = b.dataset.v;
-      document.getElementById('nextBtn').disabled = false;
+      applyEffort(ex, selected, document.getElementById('comment').value.trim());
     });
   });
-  document.getElementById('nextBtn').addEventListener('click', ()=>{
-    if(!selected) return;
-    const comment = document.getElementById('comment').value.trim();
-    finishExercise(ex, selected, comment);
+  document.getElementById('comment').addEventListener('change', (e)=>{
+    const val = e.target.value.trim();
+    if(s.results[ex.id]){
+      s.results[ex.id].comment = val;
+    } else if(selected){
+      applyEffort(ex, selected, val);
+    }
   });
+
+  main.querySelectorAll('.plate').forEach(p=>{
+    p.addEventListener('click', ()=>{
+      s.idx = parseInt(p.dataset.idx,10);
+      render();
+    });
+  });
+  document.getElementById('prevBtn').addEventListener('click', ()=>{
+    if(s.idx>0){ s.idx--; render(); }
+  });
+  document.getElementById('nextBtn2').addEventListener('click', ()=>{
+    if(s.idx < day.exercises.length-1){ s.idx++; render(); }
+    else { openCloseDayModal(); }
+  });
+  document.getElementById('closeDayBtn').addEventListener('click', openCloseDayModal);
 }
 
-function finishExercise(ex, effort, comment){
+function applyEffort(ex, effort, comment){
   const s = state.session;
-  const newStreak = (effort==='consolidado') ? (ex.streak||0)+1 : 0;
-  s.results[s.idx] = { name:ex.name, weight:ex.weight, series:ex.series, reps:ex.reps, effort, comment, prevStreak: ex.streak||0, newStreak };
+  const prevRec = s.results[ex.id];
+  if(prevRec){ ex.streak = prevRec.prevStreak; } // revertir efecto de una elección anterior sobre este ejercicio
+
+  const prevStreak = ex.streak||0;
+  const newStreak = (effort==='consolidado') ? prevStreak+1 : 0;
+  s.results[ex.id] = { name:ex.name, weight:ex.weight, series:ex.series, reps:ex.reps, effort, comment: comment||'', prevStreak, newStreak };
 
   if(newStreak >= 2){
-    s.pendingUpgrade = { exIdx: s.idx, suggestion: suggestWeight(ex.weight) };
+    ex.streak = newStreak;
+    s.pendingUpgrade = { exId: ex.id, suggestion: suggestWeight(ex.weight) };
+    saveData();
     render();
     return;
   }
   ex.streak = newStreak;
-  advance();
+  saveData();
+  render();
 }
 
 function suggestWeight(weightStr){
@@ -374,7 +487,7 @@ function suggestWeight(weightStr){
 function renderUpgradePrompt(){
   const s = state.session;
   const day = state.data[s.dia];
-  const ex = day.exercises[s.pendingUpgrade.exIdx];
+  const ex = day.exercises.find(e=>e.id===s.pendingUpgrade.exId);
   const main = document.getElementById('main');
   main.innerHTML = `
     <div class="card">
@@ -392,34 +505,60 @@ function renderUpgradePrompt(){
   document.getElementById('keepBtn').addEventListener('click', ()=>{
     ex.streak = 0;
     s.pendingUpgrade = null;
-    advance();
+    saveData();
+    render();
   });
   document.getElementById('upBtn').addEventListener('click', ()=>{
     const val = document.getElementById('newWeight').value.trim();
     if(val) ex.weight = val;
     ex.streak = 0;
     s.pendingUpgrade = null;
-    advance();
+    saveData();
+    render();
   });
 }
 
-function advance(){
+/* ================= CERRAR DÍA ================= */
+function openCloseDayModal(){
   const s = state.session;
   const day = state.data[s.dia];
-  saveData();
-  if(s.idx < day.exercises.length-1){
-    s.idx++;
-    render();
-  } else {
-    finishSession();
-  }
+  const doneCount = Object.keys(s.results).length;
+  const totalCount = day.exercises.length;
+  document.getElementById('closeDaySummaryText').textContent = doneCount===0
+    ? 'Todavía no has registrado ningún ejercicio hoy.'
+    : `Has registrado ${doneCount} de ${totalCount} ejercicios.` + (doneCount<totalCount ? ` Los ${totalCount-doneCount} restantes quedarán sin hacer hoy.` : ' ¡Entreno completo!');
+  document.getElementById('closeDayRows').innerHTML = day.exercises.map(ex=>{
+    const r = s.results[ex.id];
+    if(!r) return `<div class="summary-row"><span style="color:var(--muted)">${ex.name}</span><span class="tag" style="background:var(--surface-2);color:var(--muted)">Sin hacer</span></div>`;
+    return `<div class="summary-row"><span>${ex.name}</span><span class="tag ${r.effort}">${EFFORT_LABELS[r.effort]}</span></div>`;
+  }).join('');
+  document.getElementById('closeDayOverlay').classList.add('show');
 }
+function closeCloseDayModal(){
+  document.getElementById('closeDayOverlay').classList.remove('show');
+}
+document.getElementById('closeDayCancelX').addEventListener('click', closeCloseDayModal);
+document.getElementById('closeDayCancelBtn').addEventListener('click', closeCloseDayModal);
+document.getElementById('closeDayConfirmBtn').addEventListener('click', ()=>{
+  closeCloseDayModal();
+  finishSession();
+});
 
 function finishSession(){
   const s = state.session;
   const day = state.data[s.dia];
   const fecha = todayISO();
-  s.results.forEach(r=>{
+  const recorded = day.exercises.filter(ex=>s.results[ex.id]);
+
+  if(recorded.length===0){
+    state.session = null;
+    toast('Día cerrado sin registros');
+    goHome();
+    return;
+  }
+
+  recorded.forEach(ex=>{
+    const r = s.results[ex.id];
     state.historial.push({
       fecha, dia:s.dia, grupo:day.grupo, ejercicio:r.name, peso:r.weight,
       series:r.series, reps:r.reps, sensaciones:r.comment||'', estado:EFFORT_XLSX[r.effort],
@@ -432,27 +571,22 @@ function finishSession(){
 
 function renderSummary(fecha){
   const s = state.session;
+  const day = state.data[s.dia];
   const main = document.getElementById('main');
   document.getElementById('topSub').textContent = `${s.dia} · sesión guardada`;
+  const recorded = day.exercises.filter(ex=>s.results[ex.id]);
   main.innerHTML = `
     <div class="card">
       <h2 style="font-size:22px;margin-bottom:10px;">Resumen · ${formatDate(fecha)}</h2>
-      ${s.results.map(r=>`
-        <div class="summary-row">
-          <span>${r.name}</span>
-          <span class="tag ${r.effort}">${EFFORT_LABELS[r.effort]}</span>
-        </div>
-      `).join('')}
+      ${recorded.map(ex=>{
+        const r = s.results[ex.id];
+        return `<div class="summary-row"><span>${ex.name}</span><span class="tag ${r.effort}">${EFFORT_LABELS[r.effort]}</span></div>`;
+      }).join('')}
     </div>
     <button class="primary-btn" id="doneBtn">Volver a entrenos</button>
     <button class="ghost-btn" id="exportNowBtn">Exportar Excel ahora</button>
   `;
-  document.getElementById('doneBtn').addEventListener('click', ()=>{
-    state.session = null; currentTab='home';
-    document.querySelectorAll('.tabbar button').forEach(x=>x.classList.remove('active'));
-    document.querySelector('.tabbar button[data-tab="home"]').classList.add('active');
-    render();
-  });
+  document.getElementById('doneBtn').addEventListener('click', goHome);
   document.getElementById('exportNowBtn').addEventListener('click', exportExcel);
 }
 
@@ -492,12 +626,7 @@ function renderExport(){
     </div>
   `;
   document.getElementById('exportBtn').addEventListener('click', exportExcel);
-  document.getElementById('backHome').addEventListener('click', ()=>{
-    currentTab='home';
-    document.querySelectorAll('.tabbar button').forEach(x=>x.classList.remove('active'));
-    document.querySelector('.tabbar button[data-tab="home"]').classList.add('active');
-    render();
-  });
+  document.getElementById('backHome').addEventListener('click', goHome);
   document.getElementById('resetBtn').addEventListener('click', ()=>{
     if(confirm('¿Seguro que quieres borrar todos los pesos, rachas e historial guardados en este teléfono? Esta acción no se puede deshacer.')){
       localStorage.removeItem('shakiData');
@@ -570,6 +699,15 @@ if('serviceWorker' in navigator){
 /* ================= INIT ================= */
 loadState();
 render();
+
+/* ================= SPLASH ================= */
+setTimeout(()=>{
+  const s = document.getElementById('splash');
+  if(s){
+    s.classList.add('hide');
+    setTimeout(()=> s.remove(), 550);
+  }
+}, 1800);
 </script>
 </body>
 </html>
